@@ -83,12 +83,12 @@ class CourseListView(generic.ListView):
                 course.is_enrolled = check_if_enrolled(user, course)
         return courses
 
-
+# CourseDetailView
 class CourseDetailView(generic.DetailView):
     model = Course
     template_name = 'onlinecourse/course_detail_bootstrap.html'
 
-
+# create an enrollment for a course
 def enroll(request, course_id):
     course = get_object_or_404(Course, pk=course_id)
     user = request.user
@@ -102,7 +102,7 @@ def enroll(request, course_id):
 
     return HttpResponseRedirect(reverse(viewname='onlinecourse:course_details', args=(course.id,)))
 
-
+# submit the answer of questions for exam, then redirecting to the exam result page
 def submit(request, course_id):
     user = request.user
     course = get_object_or_404(Course, pk=course_id)
@@ -111,6 +111,7 @@ def submit(request, course_id):
     
     submission = Submission.objects.create(enrollment=enrollment)
     answers = extract_answers(request)
+    # the old choices must be uploaded for submission(totally object just not ids), so I get choice objects then set in submission.choices 
     choices = Choice.objects.filter(id__in = answers)
     submission.choices.set(choices)
     submission.save()
@@ -118,7 +119,7 @@ def submit(request, course_id):
     return HttpResponseRedirect(reverse(viewname='onlinecourse:show_exam_result', args=(course.id,submission.id)))
 
 
-# <HINT> A example method to collect the selected choices from the exam form from the request object
+#  A example method to collect the selected choices from the exam form  the request object
 def extract_answers(request):
     submitted_anwsers = []
     for key in request.POST:
@@ -129,14 +130,13 @@ def extract_answers(request):
     return submitted_anwsers
 
 
-
+# show exam result in another page and calculate grade 
 def show_exam_result(request, course_id, submission_id):
     submission = get_object_or_404(Submission, pk=submission_id)
-    
     choices = submission.choices.all()
-   
-
     total_mark, mark = 0, 0
+    # fetching question object with all dependenicies, this code is efficient rather than getting course with all objects 
+    # and then fetch the questions
     questions = Question.objects.filter(lesson__course_id = course_id)
     for question in questions:
         total_mark += question.grade
