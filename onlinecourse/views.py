@@ -103,13 +103,6 @@ def enroll(request, course_id):
     return HttpResponseRedirect(reverse(viewname='onlinecourse:course_details', args=(course.id,)))
 
 
-# <HINT> Create a submit view to create an exam submission record for a course enrollment,
-# you may implement it based on following logic:
-         # Get user and course object, then get the associated enrollment object created when the user enrolled the course
-         # Create a submission object referring to the enrollment
-         # Collect the selected choices from exam form
-         # Add each selected choice object to the submission object
-         # Redirect to show_exam_result with the submission id
 def submit(request, course_id):
     user = request.user
     course = get_object_or_404(Course, pk=course_id)
@@ -118,10 +111,11 @@ def submit(request, course_id):
     
     submission = Submission.objects.create(enrollment=enrollment)
     answers = extract_answers(request)
-    submission.chocies.set(answers)
+    choices = Choice.objects.filter(id__in = answers)
+    submission.choices.set(choices)
     submission.save()
 
-    return HttpResponseRedirect(reverse(viewname='onlinecourse:show_exam_result', args=(course_id,submission.id)))
+    return HttpResponseRedirect(reverse(viewname='onlinecourse:show_exam_result', args=(course.id,submission.id)))
 
 
 # <HINT> A example method to collect the selected choices from the exam form from the request object
@@ -145,15 +139,23 @@ def show_exam_result(request, course_id, submission_id):
     course = get_object_or_404(Course, pk=course_id)
     submission = get_object_or_404(Submission, pk=submission_id)
     
-    choices = Choice.question.get(course_id= course_id)
-    grade = 0
-    for choice in choices:
-        if choice.is_correct:
-            grade += choice.question.grade
-    context ={
-        'course': course,
-        'grade': grade
-        }
-    return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
+    choices = submission.choices.all()
+   
+
+    total_mark, mark = 0, 0
+    questions = Question.objects.filter(lesson__course_id = course_id)
+    for question in questions:
+        total_mark += question.grade
+        if question.is_get_score(choices):
+            mark += question.grade
+    
+    return render(
+        request,
+        'onlinecourse/exam_result_bootstrap.html',
+        {"course":course, "choices":choices,"mark":mark, 
+            "total_mark": total_mark, 
+            "submission": submission,
+            "grade": int((mark / total_mark) * 100) }
+    )
 
 
